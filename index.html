@@ -67,6 +67,7 @@
     <h1>Tu perfil</h1>
     <div class="dato"><span>Usuario</span><strong id="p-usuario"></strong></div>
     <div class="dato"><span>Contraseña (texto plano, solo demo)</span><strong id="p-clave"></strong></div>
+    <div class="dato"><span>Hash guardado</span><strong id="p-hash" style="font-size:.8rem"></strong></div>
     <div class="dato"><span>Objetos</span><div class="objetos" id="p-objetos"></div></div>
     <div class="dato"><span>Monedas</span><strong id="p-monedas"></strong></div>
     <button class="principal" id="btn-salir">Salir</button>
@@ -145,15 +146,37 @@ function crearAlmacenSupabase(url, clave, pedir) {
   if (faltan.length) return { ok: false, mensaje: "La contraseña debe tener " + faltan.join(", ") + "." };
   if (await almacen.buscar(nombre)) return { ok: false, mensaje: "Ese usuario ya existe. Elige otro." };
   const botin = generarBotin(azar);
-  const resultado = await almacen.crear({ nombre_usuario: nombre, contrasena: clave || "", objetos: botin.objetos, monedas: botin.monedas });
+  const resultado = await almacen.crear({ nombre_usuario: nombre, contrasena: clave || "",  contrasena_hash: await hashearContrasena(clave), objetos: botin.objetos, monedas: botin.monedas });
   if (resultado === "DUPLICADO") return { ok: false, mensaje: "Ese usuario ya existe. Elige otro." };
   return { ok: true, mensaje: "Registro exitoso" };
 }
+const ITERACIONES = 210000;
+const aB64 = bytes => btoa(String.fromCharCode(...bytes));
+const deB64 = texto => Uint8Array.from(atob(texto), c => c.charCodeAt(0));
 
+async function derivar(clave, sal, iteraciones) {
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(clave), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: sal, iterations: iteraciones, hash: "SHA-256" }, material, 256);
+  return new Uint8Array(bits);
+}
+
+async function hashearContrasena(clave) {
+  const sal = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await derivar(clave || "", sal, ITERACIONES);
+  return "pbkdf2$" + ITERACIONES + "$" + aB64(sal) + "$" + aB64(hash);
+}
+
+async function verificarContrasena(clave, guardado) {
+  const partes = (guardado || "").split("$");
+  if (partes.length !== 4 || partes[0] !== "pbkdf2") return false;
+  const hash = await derivar(clave || "", deB64(partes[2]), parseInt(partes[1], 10));
+  return aB64(hash) === partes[3];
+}
+  
 async function iniciarSesion(almacen, nombre, clave) {
   nombre = (nombre || "").trim();
   const u = await almacen.buscar(nombre);
-  if (!u || u.contrasena !== (clave || "")) return { ok: false, mensaje: "Usuario o contraseña incorrectos." };
+  if (!u || !(await verificarContrasena(clave, u.contrasena_hash))) return { ok: false, mensaje: "Usuario o contraseña incorrectos." };
   return { ok: true, usuario: u };
 }
 /* ===== FIN LÓGICA ===== */
@@ -175,6 +198,7 @@ if (typeof document !== "undefined") {
   function mostrarPerfil(u) {
     $("p-usuario").textContent = u.nombre_usuario;
     $("p-clave").textContent = u.contrasena === "" ? "(vacía)" : u.contrasena;
+    $("p-hash").textContent = u.contrasena_hash;
     $("p-monedas").textContent = u.monedas;
     const caja = $("p-objetos"); caja.innerHTML = "";
     const lista = (u.objetos || "").split(",").map(s => s.trim()).filter(Boolean);
