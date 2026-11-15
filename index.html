@@ -66,8 +66,6 @@
   <section id="pantalla-perfil" hidden>
     <h1>Tu perfil</h1>
     <div class="dato"><span>Usuario</span><strong id="p-usuario"></strong></div>
-    <div class="dato"><span>Contraseña (texto plano, solo demo)</span><strong id="p-clave"></strong></div>
-    <div class="dato"><span>Hash guardado</span><strong id="p-hash" style="font-size:.8rem"></strong></div>
     <div class="dato"><span>Objetos</span><div class="objetos" id="p-objetos"></div></div>
     <div class="dato"><span>Monedas</span><strong id="p-monedas"></strong></div>
     <button class="principal" id="btn-salir">Salir</button>
@@ -197,8 +195,6 @@ if (typeof document !== "undefined") {
 
   function mostrarPerfil(u) {
     $("p-usuario").textContent = u.nombre_usuario;
-    $("p-clave").textContent = u.contrasena === "" ? "(vacía)" : u.contrasena;
-    $("p-hash").textContent = u.contrasena_hash;
     $("p-monedas").textContent = u.monedas;
     const caja = $("p-objetos"); caja.innerHTML = "";
     const lista = (u.objetos || "").split(",").map(s => s.trim()).filter(Boolean);
