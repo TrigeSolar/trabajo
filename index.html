@@ -53,7 +53,7 @@
   <!-- PANTALLA 2: REGISTRO -->
   <section id="pantalla-registro" hidden>
     <h1>Crear cuenta</h1>
-    <p class="sub">Elige un usuario. La contraseña puede ser cualquiera, incluso vacía.</p>
+    <p class="sub">Elige un usuario y una contraseña de 8 o más caracteres, con mayúscula, minúscula, número y símbolo.</p>
     <label for="reg-usuario">Usuario</label>
     <input type="text" id="reg-usuario" autocomplete="off">
     <label for="reg-clave">Contraseña</label>
@@ -137,9 +137,12 @@ function crearAlmacenSupabase(url, clave, pedir) {
   };
 }
 
-async function registrar(almacen, nombre, clave, azar) {
+// Devuelve la lista de reglas que NO cumple la contraseña (vacía = cumple todas). 
+  function validarContrasena(clave) {   clave = clave || "";   const faltan = [];   if ([...clave].length < 8) faltan.push("al menos 8 caracteres");   if (!/\p{Lu}/u.test(clave)) faltan.push("una mayúscula");   if (!/\p{Ll}/u.test(clave)) faltan.push("una minúscula");   if (!/[0-9]/.test(clave)) faltan.push("un número");   if (!/[^\p{L}\p{N}\s]/u.test(clave)) faltan.push("un símbolo");   return faltan; }  async function registrar(almacen, nombre, clave, azar) {
   nombre = (nombre || "").trim();
   if (!nombre) return { ok: false, mensaje: "Escribe un nombre de usuario." };
+    const faltan = validarContrasena(clave);
+  if (faltan.length) return { ok: false, mensaje: "La contraseña debe tener " + faltan.join(", ") + "." };
   if (await almacen.buscar(nombre)) return { ok: false, mensaje: "Ese usuario ya existe. Elige otro." };
   const botin = generarBotin(azar);
   const resultado = await almacen.crear({ nombre_usuario: nombre, contrasena: clave || "", objetos: botin.objetos, monedas: botin.monedas });
